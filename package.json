@@ -1,0 +1,24 @@
+{
+  "name": "joes_electronics",
+  "version": "1.0.0",
+  "description": "Web-based inventory management system built with PHP, MySQL, HTML/CSS and JavaScript. Runs locally via XAMPP.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kurmankul-n/joes_electronics.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kurmankul-n/joes_electronics/issues"
+  },
+  "homepage": "https://github.com/kurmankul-n/joes_electronics#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
+  }
+}
