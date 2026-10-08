@@ -8,12 +8,12 @@
 
 ## 1. Purpose of this document
 
-This document is an execution guide for completing the SAU2 testing table. It contains **10 test cases** covering normal, boundary, invalid, functional, and access-control scenarios in the actual Joe’s Electronics system.
+This document is an execution guide for completing the SAU2 testing table. It contains **15 test cases** for the Joe’s Electronics system. Each test uses one type of test data from the course notes: normal, borderline (extreme) or invalid. All tests are black box tests: the tester enters inputs and compares the outputs with the expected result.
 
 The coding agent should:
 
 1. Set up the application and database.
-2. Execute the ten tests in the order shown.
+2. Execute the fifteen tests in the order shown.
 3. Capture at least one readable screenshot for each test.
 4. Fill the **Actual Result** column with what really happened, rather than copying the expected result.
 5. Mark each test as **PASS** or **FAIL** and briefly explain any difference.
@@ -41,7 +41,7 @@ Evidence may be captured manually in Chrome/Edge or automatically using the **Pl
 4. Locate controls by label, role, or name, such as `getByLabel('Username')`, `getByRole('button', { name: 'Sign In' })`, or `getByRole('link', { name: 'Products' })`.
 5. Fill the exact test data from the relevant test case and submit the form.
 6. Assert the expected URL, visible alert text, table row, calculated value, or navigation item.
-7. Save a screenshot after the result is visible using the required filename, for example `TC07_sale_recorded.png`. Use a full-page screenshot when the relevant result is not visible in the viewport.
+7. Save a screenshot after the result is visible using the required filename, for example `TC10_sale_recorded.png`. Use a full-page screenshot when the relevant result is not visible in the viewport.
 8. In the final table, report the observed result and link or insert the saved screenshot. Do not use a screenshot of an assertion failure as evidence of a passing test.
 
 Example Playwright-style evidence snippet:
@@ -105,16 +105,21 @@ Use accessible labels where possible. If the local browser does not expose a lab
 
 | Test | Source-level sequence to verify | State change |
 |---:|---|---|
-| 1 | `login.php` receives POST → `loginUser()` in `auth.php` queries `users` → `password_verify()` succeeds → session values are set → redirect to `index.php`. | Session is created; database is unchanged. |
-| 2 | `login.php` receives POST → `loginUser()` fails username/password lookup or verification → error string is rendered. | No authenticated session should be created; database unchanged. |
-| 3 | `register.php` validates the input in order: empty fields, username length, password length, password match → only then calls `registerUser()`. | With username `ab`, no user row should be inserted. |
-| 4 | `products.php` checks `$canEdit` and `action=add` → validates price/stock/name/category → executes `INSERT INTO products` → reloads the list and applies `bubbleSort()`. | One product row is inserted. |
-| 5 | `products.php` reads GET `searchID` → rejects `<= 0`, otherwise loads products ordered by `ProductID` → calls `binarySearch()` → renders either Search Result or error alert. | No database change. |
-| 6 | Page templates call `isAdmin()` to show the Users link; `users.php` calls `requireAdmin()` → `requireLogin()` → non-admin redirect to `index.php`. | No database change. |
-| 7 | `sales.php` validates positive product/quantity/date → loads stock → creates or reuses one `reports` row for the date → inserts `sales` row → updates product stock. The JavaScript preview runs before the POST. | One sale row; stock decreases by the quantity; one report row may be created. |
-| 8 | `sales.php` loads the selected product and checks `StockQuantity < quantitySold` before the report INSERT, sale INSERT, and stock UPDATE branches. | No sale/report/stock change should occur. |
-| 9 | `profile.php` update branch writes `FullName` and session name; password branch checks length/matching fields, loads the stored hash, and calls `password_verify()`. | Test 9 changes only the full name; wrong current password must not change the password hash. |
-| 10 | `reports.php` reads GET `date` → `buildReportMatrix()` queries each product’s selected-date sales → totals are accumulated → rows are sorted by revenue descending → the table and totals are rendered. | Report viewing should not change database state. |
+| 1 | `login.php` POST → `loginUser()` in `auth.php` → `password_verify()` succeeds → session set → redirect to `index.php`. | Session created; database unchanged. |
+| 2 | `login.php` POST → `loginUser()` fails the password check → error string rendered. | No session; database unchanged. |
+| 3 | `register.php` checks empty fields, username length (≥3), password length (≥4), password match → `registerUser()`. | One user row (`abc`) inserted. |
+| 4 | `register.php` stops at `strlen($username) < 3`. | No user row inserted. |
+| 5 | `products.php` `action=add` → validates name/category/price/stock → `INSERT INTO products` → `bubbleSort()`. | One product row inserted. |
+| 6 | Same branch as Test 5; `$unitPrice <= 0 \|\| $stockQuantity < 0` is false for `0.01` and `0`. | One product row inserted. |
+| 7 | `products.php` GET `searchID` → `<= 0` check passes for `1` → `binarySearch()`. | No database change. |
+| 8 | `products.php` GET `searchID` → `<= 0` check rejects `0`. | No database change. |
+| 9 | `users.php` calls `requireAdmin()` → non-admin redirect to `index.php`; navbar hides Users when `isAdmin()` is false. | No database change. |
+| 10 | `sales.php` validates input → checks stock → creates/reuses `reports` row → inserts `sales` row → updates stock. | One sale; Samsung stock 15 → 13. |
+| 11 | Browser `max` = stock blocks the form; server check `StockQuantity < quantitySold` rejects it. | No sale; stock unchanged. |
+| 12 | `StockQuantity < quantitySold` is false for 2 of 2 → sale inserted → stock 0 → product leaves the sale list (`StockQuantity > 0`). | One sale; Mouse stock 2 → 0. |
+| 13 | `profile.php` `updateProfile` writes `FullName` and the session name. | Full name changed, then restored. |
+| 14 | `profile.php` `changePassword` → `password_verify()` fails. | Password hash unchanged. |
+| 15 | `reports.php` GET `date` → `buildReportMatrix()` → totals → sort by revenue. | No database change. |
 
 ### 4.4 Exact business rules and expected messages from the source
 
@@ -135,15 +140,15 @@ Use accessible labels where possible. If the local browser does not expose a lab
 
 For a deterministic run, import `inventory_db.sql` into a clean `inventory_db` database. It creates the tables `users`, `products`, `reports`, and `sales`, and seeds the two accounts and eight products listed earlier. The seeded password hash corresponds to `password`.
 
-Run tests in this order when possible:
+Run tests in this order:
 
-1. **Tests 1–3:** public authentication/registration checks; no intended database mutation.
-2. **Tests 4–5:** admin product insertion and search. Test 4 intentionally adds `Test Wireless Charger`.
-3. **Test 6:** regular-user authorization; no intended database mutation.
-4. **Test 7:** valid sale; intentionally changes stock and creates a sales/report record.
-5. **Test 8:** use a fresh database or a product whose known stock is still `2`; it must run before that product is sold out.
-6. **Test 9:** profile name is intentionally changed; restore the name after evidence capture if the environment is shared.
-7. **Test 10:** depends on the sale created by Test 7; use the exact sale date shown in the sale record.
+1. **Tests 1–4:** login and registration. Test 3 creates the user `abc`.
+2. **Tests 5–8:** products and search. Tests 5 and 6 add `Test Wireless Charger` and `Test Cable`.
+3. **Test 9:** regular-user access; no database change.
+4. **Test 10:** sells 2 Samsung TV 55\" (stock 15 → 13).
+5. **Tests 11–12:** need Wireless Mouse stock `2`. Test 11 must run before Test 12, which sells the last 2 units.
+6. **Tests 13–14:** profile. Test 13 restores the original name.
+7. **Test 15:** needs the sales from Tests 10 and 12; use the sale date shown in Sales History.
 
 Do not call a test **PASS** merely because the page loads. The evidence must show the specific message, row, value, redirect, or unchanged state described in the test.
 
@@ -151,10 +156,10 @@ Do not call a test **PASS** merely because the page loads. The evidence must sho
 
 | Column | What to write | Quality requirement |
 |---|---|---|
-| **#** | Test number from 1 to 10 | Keep numbering consistent with the screenshots |
+| **#** | Test number from 1 to 15 | Keep numbering consistent with the screenshots |
 | **Purpose** | The function or characteristic being tested | State the feature clearly |
 | **Description** | Exact actions, sequence, and conditions | Include page, account, input, and submit action |
-| **Type of validation** | For example: functional, boundary, invalid-input, security/access-control, integration, calculation | Use a specific validation type |
+| **Type of validation** | The type of test data from the course notes: **normal** (expected input, accepted), **borderline/extreme** (the last value still accepted at a limit, for example 1 and 10 in a 1–10 range) or **invalid** (wrong type, characters not allowed, or outside the limits; rejected with an error message). Add the strategy: black box. | One data type per test |
 | **Test data** | Account, product, dates, quantities, and values used | Record exact values, not only “valid data” |
 | **Expected result** | Correct outcome before running the test | Include messages, redirects, displayed values, and database-visible effects |
 | **Actual result** | What the application actually displayed or changed | End with `PASS` or `FAIL`; include the screenshot reference |
@@ -203,181 +208,78 @@ The clean database should contain these products. Record the Product ID displaye
 
 ### 6.4 Test-data control rules
 
-- Run tests 1–6 before tests that alter inventory or passwords where possible.
-- Test 7 changes product stock and creates a sale. Test 8 must use a product with enough remaining stock and deliberately exceed it.
-- If the tests are repeated, restore the database from `inventory_db.sql` or use a fresh test database so previous sales and registered usernames do not change the results.
-- For test 3, use a unique username such as `testuser_20261008_01` so the test can be repeated.
-- For test 9, use a temporary profile name and restore it afterward if the assignment environment is shared.
+- Reset the database from `inventory_db.sql` before each full run, so earlier sales and the user `abc` do not change the results.
+- Test 10 changes Samsung stock. Tests 11 and 12 need the seed Wireless Mouse stock of `2`.
+- Test 13 changes the admin full name and restores it afterward.
 
 ---
 
-## 7. Ten tests to enter in the assignment table
+## 7. Fifteen tests and their data types
 
-### Test 1 — Valid administrator login
+The course notes name three types of test data:
 
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that a registered administrator can sign in and access the protected system. |
-| **Code/screen under test** | Screen: `login.php` before submission and `index.php` after submission. Code: `login.php` handles the POST and redirect; `auth.php` function `loginUser()` verifies the password, regenerates the session ID, and stores the user role; `index.php` is the protected destination. Evidence target: the Dashboard heading, summary cards, signed-in name, and administrator-only **Users** link. |
-| **Description** | 1. Open the login page. 2. Confirm the Username and Password fields are visible. 3. Enter `admin` in Username. 4. Enter `password` in Password. 5. Click **Sign In**. 6. Wait for the dashboard to load. 7. Check the URL, dashboard heading, administrator name, and Users link. |
-| **Type of validation** | Functional validation; positive/normal input; authentication and session validation. |
-| **Test data** | Username: `admin`; password: `password`. |
-| **Expected result** | Login succeeds and the user is redirected to `index.php` (Dashboard). The dashboard is displayed and the navigation includes the administrator-only **Users** link. |
-| **Actual result** | Fill after execution: record redirect, dashboard visibility, displayed role/navigation, PASS or FAIL, and screenshot filename. |
-| **Evidence screenshot** | Capture the dashboard after login with the navbar and administrator name/Users link visible. Suggested filename: `TC01_admin_login.png`. |
+- **Normal:** data the program expects. It runs without errors.
+- **Borderline (extreme):** data at the edge of what the program accepts. It still runs without errors.
+- **Invalid:** data the program must reject with an error message, because it has the wrong type, uses characters that are not allowed, or falls outside the limits.
 
-### Test 2 — Invalid login credentials
+The limits in the source code are: username at least 3 characters and password at least 4 (`register.php`), price above 0 and stock 0 or more (`products.php`), Product ID 1 or more (`products.php`), and sale quantity from 1 up to the stock (`sales.php`).
 
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that invalid credentials are rejected without creating an authenticated session. |
-| **Code/screen under test** | Screen: `login.php`. Code: `login.php` validates that fields are non-empty and calls `auth.php` function `loginUser()`; the function returns **“Invalid username or password.”** when the account/password check fails. Evidence target: login form, entered username, and visible error alert, with no dashboard. |
-| **Description** | 1. Log out if a session is active. 2. Open the login page. 3. Enter `admin` as the username. 4. Enter `wrong-password-123` as the password. 5. Click **Sign In**. 6. Wait for the response. 7. Confirm that the page remains on login and inspect the error alert. |
-| **Type of validation** | Invalid-input validation; negative authentication/security test. |
-| **Test data** | Existing username: `admin`; incorrect password: `wrong-password-123`. |
-| **Expected result** | The user remains on the login page. The error message **“Invalid username or password.”** is displayed. The dashboard is not opened. |
-| **Actual result** | Fill after execution with the exact displayed message and PASS or FAIL. |
-| **Evidence screenshot** | Capture the login form and visible error alert. Suggested filename: `TC02_invalid_login.png`. |
+| # | Data type | Test | Why this data type |
+|---:|---|---|---|
+| 1 | Normal | Admin login with `admin` / `password` | Correct username and password |
+| 2 | Invalid | Login with `admin` / `wrong-password-123` | Password does not match the account |
+| 3 | Borderline | Register `abc` / `pass` | 3 and 4 characters, the shortest the app accepts |
+| 4 | Invalid | Register `ab` / `pass1234` | 2 characters, one below the minimum |
+| 5 | Normal | Add Test Wireless Charger, `29.99`, stock `10` | Typical product values |
+| 6 | Borderline | Add Test Cable, `0.01`, stock `0` | Lowest accepted price and stock |
+| 7 | Borderline | Search Product ID `1` | Lowest accepted ID |
+| 8 | Invalid | Search Product ID `0` | One below the lowest ID |
+| 9 | Invalid | `user` opens `/users.php` | Account without admin rights |
+| 10 | Normal | Sell 2 Samsung TV 55\" (stock 15) | Quantity well inside the stock |
+| 11 | Invalid | Sell 3 Wireless Mouse (stock 2) | One above the stock |
+| 12 | Borderline | Sell 2 Wireless Mouse (stock 2) | Quantity equal to the stock, the highest accepted |
+| 13 | Normal | Change full name to `Updated Test Name` | Typical name |
+| 14 | Invalid | Change password with current password `wrong-current` | Current password is wrong |
+| 15 | Normal | Reports for `08/10/2026` and `01/01/2020` | Valid dates, one with sales and one without |
 
-### Test 3 — Registration boundary and password confirmation
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that registration validates minimum username length and matching passwords before creating an account. |
-| **Code/screen under test** | Screen: `register.php`. Code: the registration POST block checks empty fields, `strlen($username) < 3`, `strlen($password) < 4`, and password confirmation before calling `auth.php` function `registerUser()`. Evidence target: registration form and the validation alert. |
-| **Description** | 1. Open the login page. 2. Click **Create one**. 3. Enter `Boundary Test User` in Full Name. 4. Enter the two-character username `ab`. 5. Enter `pass1234` as the password. 6. Enter `different123` as the confirmation. 7. Click **Create Account**. 8. Check which validation message is displayed and confirm no success message appears. |
-| **Type of validation** | Boundary validation and invalid-input validation. |
-| **Test data** | Full name: `Boundary Test User`; username: `ab`; password: `pass1234`; confirmation: `different123`. |
-| **Expected result** | Registration is rejected and no account is created. The application displays the first validation error, expected to be **“Username must be at least 3 characters.”** because the username is below the minimum boundary. |
-| **Actual result** | Record the exact alert, whether the page stayed on registration, PASS or FAIL, and screenshot filename. |
-| **Evidence screenshot** | Capture the filled registration form and validation message. Suggested filename: `TC03_registration_boundary.png`. |
-
-### Test 4 — Administrator adds a product with normal data
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that an administrator can create a new product and that it appears in the product list with the correct values. |
-| **Code/screen under test** | Screen: `products.php`, administrator **Add New Product** form and product table. Code: the `action=add` branch validates the submitted values and executes the `INSERT INTO products` query; `bubbleSort()` in `functions.php` controls the displayed alphabetical order. Evidence target: success alert and the newly inserted product row showing name, category, price, and stock. |
-| **Description** | 1. Sign in as `admin`. 2. Open **Products** from the navbar. 3. Confirm the Add New Product form is visible. 4. Enter `Test Wireless Charger` as the product name. 5. Enter `Accessories` as the category. 6. Enter `29.99` as the unit price. 7. Enter `10` as the stock quantity. 8. Click **Add Product**. 9. Inspect the success alert and locate the new row in the product table. |
-| **Type of validation** | Functional CRUD validation; positive/normal input; database-to-interface integration. |
-| **Test data** | Name: `Test Wireless Charger`; category: `Accessories`; price: `29.99`; stock: `10`. |
-| **Expected result** | A success alert such as **“Product 'Test Wireless Charger' added successfully!”** appears. The new product is visible in the product table with price `$29.99` and stock `10`, shown as in stock. |
-| **Actual result** | Record the success message and the values visible in the product table, then mark PASS or FAIL. |
-| **Evidence screenshot** | Capture the success alert and the new product row in the Products table. Suggested filename: `TC04_add_product.png`. |
-
-### Test 5 — Product ID search, including a boundary value
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that product search returns an existing product and rejects the non-positive ID boundary. |
-| **Code/screen under test** | Screen: `products.php`, Product ID search box and Search Result panel. Code: the `searchID` GET branch rejects IDs `<= 0`, loads products ordered by `ProductID`, and calls `functions.php` function `binarySearch()`. Evidence target: the valid Search Result and the `Product ID must be a positive number.` alert for `0`. |
-| **Description** | 1. Open **Products** while logged in. 2. Find the displayed Product ID for `Samsung TV 55\"`. 3. Enter that ID into Search by Product ID. 4. Click **Search** and verify the matching result. 5. Enter `0` in the same field. 6. Click **Search** again. 7. Verify that the positive-number validation appears and no product result is shown. |
-| **Type of validation** | Functional search validation plus boundary/invalid-input validation. |
-| **Test data** | Valid Product ID: the displayed ID for `Samsung TV 55\"`; boundary ID: `0`. |
-| **Expected result** | For the valid ID, a **Search Result** row shows the matching product and a message similar to **“Product found using Binary Search”**. For `0`, the application displays **“Product ID must be a positive number.”** and does not return a product. |
-| **Actual result** | Record both observed outcomes and mark PASS only if both behave as expected. |
-| **Evidence screenshot** | Use one screenshot showing the valid search result and one showing the boundary error, or combine both in a clearly labelled evidence image. Suggested filenames: `TC05_search_valid.png`, `TC05_search_zero.png`. |
-
-### Test 6 — Regular-user access control
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that a regular user can use permitted pages but cannot access administrator-only user management. |
-| **Code/screen under test** | Screens: regular-user `index.php` navbar and direct `users.php` request. Code: `auth.php` functions `isAdmin()` and `requireAdmin()` enforce the role; `index.php` and other navigation templates hide the Users link when the role is not admin; `users.php` calls `requireAdmin()` before rendering. Evidence target: dashboard without Users and the redirected dashboard after opening `users.php`. |
-| **Description** | 1. Log out from the administrator account. 2. Sign in with username `user` and password `password`. 3. Inspect the navbar and confirm that **Users** is absent. 4. In the address bar, navigate directly to `users.php`. 5. Wait for the redirect. 6. Confirm the final page is the dashboard and that no user-management controls are available. |
-| **Type of validation** | Security validation; role-based authorization and negative access test. |
-| **Test data** | Regular account: `user` / `password`; protected URL: `users.php`. |
-| **Expected result** | The regular user can reach the dashboard, but the **Users** link is hidden. Direct navigation to `users.php` is blocked and redirects to `index.php` (Dashboard). No user-management table or delete/role controls are exposed. |
-| **Actual result** | Record the navbar and redirect observed, then mark PASS or FAIL. |
-| **Evidence screenshot** | Capture the regular-user dashboard/navbar without Users, plus the final page after direct `users.php` access. Suggested filenames: `TC06_user_access.png`, `TC06_users_blocked.png`. |
-
-### Test 7 — Record a normal sale and verify stock/revenue calculation
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that a valid sale calculates revenue, records the sale, reduces stock, and updates the sales history. |
-| **Code/screen under test** | Screen: `sales.php`, New Sale form, JavaScript preview, success alert, and Sales History. Code: the `action=recordSale` branch validates product/quantity/date, checks stock, creates or reuses a daily report, inserts into `sales`, and updates `products.StockQuantity`; the page JavaScript functions `updatePrice()` and `calculatePreview()` calculate the visible preview. Evidence target: preview before submission and success/history/stock result after submission. |
-| **Description** | 1. Sign in as `admin` or `user`. 2. Open **Sales**. 3. Select `Samsung TV 55\"` or another product with at least five units available. 4. Enter quantity `2`. 5. Keep the pre-filled current date. 6. Confirm the live preview shows the unit price and calculated revenue. 7. Capture the preview. 8. Click **Record Sale**. 9. Inspect the success alert, new stock value, and newest Sales History row. |
-| **Type of validation** | Functional transaction/integration validation; normal input; calculation and state-change validation. |
-| **Test data** | Product: `Samsung TV 55\"`; unit price: `$499.99`; quantity: `2`; date: current date. Expected revenue: `$999.98`. |
-| **Expected result** | The preview shows unit price `$499.99` and estimated revenue `$999.98`. After submission, a success message reports 2 units sold and the new stock (initially 15, expected 13 if untouched). Sales History contains the new sale with revenue `$999.98`. |
-| **Actual result** | Record preview, success message, new stock, sales-history row, PASS or FAIL, and screenshot filename. |
-| **Evidence screenshot** | Capture the preview before submitting and the success message/history after submitting. Suggested filenames: `TC07_sale_preview.png`, `TC07_sale_recorded.png`. |
-
-### Test 8 — Prevent overselling beyond available stock
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that the system prevents a sale quantity greater than the product’s available stock. |
-| **Code/screen under test** | Screen: `sales.php`, New Sale form and error alert. Code: the `recordSale` branch queries the selected product stock and checks `StockQuantity < quantitySold` before creating a report, inserting a sale, or updating stock. Evidence target: selected product and attempted quantity plus the **Not enough stock!** alert; verify the history and stock state are unchanged. |
-| **Description** | 1. Open **Sales** on a fresh or restored database. 2. Select `Wireless Mouse` and note that available stock is `2`. 3. Enter quantity `3`, which is one greater than available stock. 4. Keep the current date. 5. Click **Record Sale**. 6. Inspect the error alert. 7. Confirm that no new sale appears in Sales History and that the product stock has not decreased. |
-| **Type of validation** | Boundary/invalid-input validation; business-rule and data-integrity test. |
-| **Test data** | Product: `Wireless Mouse`; available stock: `2`; attempted quantity: `3`; date: current date. |
-| **Expected result** | The sale is rejected. The application displays a message similar to **“Not enough stock! Available: 2 units of 'Wireless Mouse'.”** No new sales-history row is created and the product stock remains `2`. |
-| **Actual result** | Record the exact message and verify no stock/sale change, then mark PASS or FAIL. |
-| **Evidence screenshot** | Capture the selected product/quantity and the visible “Not enough stock” alert. Suggested filename: `TC08_overselling_blocked.png`. |
-
-### Test 9 — Profile update and password validation
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that an authenticated user can update the profile name and that an incorrect current password is rejected when changing the password. |
-| **Code/screen under test** | Screen: `profile.php`, Edit Profile form, Account Information panel, and Change Password form. Code: the `updateProfile` branch updates `users.FullName` and `$_SESSION['full_name']`; the `changePassword` branch validates fields and length, then uses `password_verify()` before updating the hash. Evidence target: successful profile message/name and the incorrect-current-password alert. |
-| **Description** | 1. Open **Profile** while authenticated. 2. Replace Full Name with `Updated Test Name`. 3. Click **Update Profile**. 4. Confirm the success alert and updated name. 5. In Change Password, enter `wrong-current` as Current Password. 6. Enter `newpass123` in both new-password fields. 7. Click **Change Password**. 8. Confirm that the incorrect-current-password error appears and that the password is not changed. |
-| **Type of validation** | Functional profile validation plus invalid security/password validation. |
-| **Test data** | New full name: `Updated Test Name`; incorrect current password: `wrong-current`; new password: `newpass123`; confirmation: `newpass123`. |
-| **Expected result** | The profile update succeeds and shows **“Profile updated successfully!”**; the name is updated in the profile/navigation. The password change is rejected with **“Current password is incorrect.”** and the old password remains valid. |
-| **Actual result** | Record both messages and the displayed updated name, then mark PASS or FAIL. |
-| **Evidence screenshot** | Capture the successful profile update and the incorrect-current-password error. Suggested filenames: `TC09_profile_update.png`, `TC09_password_rejected.png`. |
-
-### Test 10 — Daily report totals and date filtering
-
-| Field | Content |
-|---|---|
-| **Purpose** | Verify that the Reports page filters by date and displays consistent units sold, remaining stock, revenue, product summaries, and totals after a recorded sale. |
-| **Code/screen under test** | Screen: `reports.php`, date form, summary cards, product summary table, and totals row. Code: `reports.php` reads the GET `date`, calls `functions.php` function `buildReportMatrix()`, aggregates totals, and sorts rows by revenue; `buildReportMatrix()` queries products and sales for the selected date. Evidence target: sale-date row/totals and the no-sales warning/zero totals for the second date. |
-| **Description** | 1. Complete Test 7 or use an existing sale. 2. Open **Reports**. 3. Enter the exact date of the sale in Report Date. 4. Click **Generate Report**. 5. Locate the Samsung product row and totals row. 6. Compare units sold and revenue with Test 7. 7. Select a different date with no sales, such as `01/01/2020`. 8. Click **Generate Report** again. 9. Verify the no-sales warning and zero sales totals while inventory rows remain visible. |
-| **Type of validation** | Functional report validation; date-filtering, aggregation/calculation, and integration validation. |
-| **Test data** | Sale date from Test 7; Samsung sale quantity `2`; unit price `$499.99`; expected Samsung revenue `$999.98`; no-sales date: a different date such as `01/01/2020`. |
-| **Expected result** | For the sale date, the Samsung row shows 2 units sold and `$999.98` revenue; the totals row includes those values. For the no-sales date, the warning **“No sales were recorded”** appears and total units/revenue are zero, while current inventory levels remain visible. |
-| **Actual result** | Record both report views, observed totals, warning, and PASS or FAIL. |
-| **Evidence screenshot** | Capture the report for the sale date with the Samsung row/totals and the no-sales-date warning. Suggested filenames: `TC10_report_with_sales.png`, `TC10_report_no_sales.png`. |
+Mix: 5 normal, 4 borderline, 6 invalid. Section 9 holds the full description, test data, expected and actual result for each test.
 
 ---
 
 ## 8. Test-to-code traceability matrix
 
-Use this matrix when the coding agent needs to locate the implementation before running a test. The screen/page is the primary evidence location; the listed file/function is the source-code location to inspect if the result differs from the expected behaviour.
-
 | Test | Primary screen/page | Main source file(s) | Key implementation to inspect |
 |---:|---|---|---|
-| 1 | `login.php` → `index.php` | `login.php`, `auth.php`, `index.php` | `loginUser()`, session creation, `requireLogin()`, admin navbar |
-| 2 | `login.php` | `login.php`, `auth.php` | Empty-field validation and invalid-credential return |
-| 3 | `register.php` | `register.php`, `auth.php` | Minimum lengths, confirmation check, `registerUser()` |
-| 4 | `products.php` | `products.php`, `functions.php` | Add POST branch, products INSERT, `bubbleSort()` |
-| 5 | `products.php` | `products.php`, `functions.php` | `searchID` branch and `binarySearch()` |
-| 6 | `index.php`, direct `users.php` | `auth.php`, `index.php`, `users.php` | `isAdmin()`, `requireAdmin()`, hidden Users link |
-| 7 | `sales.php` | `sales.php`, `functions.php`, database tables | Preview JavaScript, stock check, sales INSERT, stock UPDATE |
-| 8 | `sales.php` | `sales.php` | Overselling condition before any transaction changes |
-| 9 | `profile.php` | `profile.php`, `auth.php` | Profile update, `password_verify()`, password hash update |
-| 10 | `reports.php` | `reports.php`, `functions.php` | Date filter, `buildReportMatrix()`, totals and revenue sorting |
+| 1–2 | `login.php` → `index.php` | `login.php`, `auth.php` | `loginUser()`, `password_verify()`, session |
+| 3–4 | `register.php` | `register.php`, `auth.php` | Length checks, `registerUser()` |
+| 5–6 | `products.php` | `products.php`, `functions.php` | Add branch, `INSERT`, `bubbleSort()` |
+| 7–8 | `products.php` | `products.php`, `functions.php` | `searchID` check, `binarySearch()` |
+| 9 | `index.php`, `users.php` | `auth.php`, `users.php` | `isAdmin()`, `requireAdmin()` |
+| 10–12 | `sales.php` | `sales.php` | Preview script, `max` attribute, stock check, sale `INSERT`, stock `UPDATE` |
+| 13–14 | `profile.php` | `profile.php` | `updateProfile`, `changePassword`, `password_verify()` |
+| 15 | `reports.php` | `reports.php`, `functions.php` | `buildReportMatrix()`, totals, revenue sort |
 
 ## 9. Final results table
 
-Results of the 10 test cases, run on 08/10/2026.
+Results of the 15 test cases, run on 08/10/2026. Each test uses one type of test data: normal, borderline or invalid.
 
 | # | Purpose | Description | Type of validation | Test data | Expected result | Actual result / Evidence |
 |---:|---|---|---|---|---|---|
-| 1 | Check that the administrator can log in. | Pre: fresh database import.<br>1. Open `/login.php`.<br>2. Enter username `admin` and password `password`.<br>3. Click **Sign In**.<br>4. Look at the dashboard and the navbar. | Functional, valid login | Username `admin`; password `password` | The dashboard opens and the navbar shows the Users link. | The browser went to `index.php`. The dashboard showed the summary cards (8 products, 0 units sold today, 2 low-stock items, $19,479.19 inventory value) and the **Users** link. The navbar showed “Administrator”. **PASS.** Evidence: `evidence/TC01_admin_login.png` |
-| 2 | Check that a wrong password is rejected. | 1. Open `/login.php`.<br>2. Enter username `admin` and password `wrong-password-123`.<br>3. Click **Sign In**.<br>4. Read the page and the alert. | Security, invalid input | Username `admin` (exists); password `wrong-password-123` (wrong) | The login page stays open and shows “Invalid username or password.” | The browser stayed on `login.php` and showed a red alert, “Invalid username or password.” The username field kept `admin`, the password field was empty, and no dashboard opened. **PASS.** Evidence: `evidence/TC02_invalid_login.png` |
-| 3 | Check the minimum username length on the registration form. | 1. Open `/register.php`.<br>2. Enter full name `Boundary Test User`, username `ab` (2 characters, one below the minimum of 3), password `pass1234` and confirm password `different123` (does not match).<br>3. Click **Create Account**. | Boundary, invalid input | Full name `Boundary Test User`; username `ab`; password `pass1234`; confirm password `different123` | The form rejects the registration, stays on `register.php` and shows “Username must be at least 3 characters.” | The page stayed on `register.php` and showed “Username must be at least 3 characters.” The app checks the username before the password match, so it did not report the mismatch. No account was created. **PASS.** Evidence: `evidence/TC03_registration_boundary.png` |
-| 4 | Check that an administrator can add a product. | Pre: logged in as `admin`.<br>1. Open **Products**.<br>2. Fill in the Add Product form with the test data.<br>3. Click **Add Product**.<br>4. Read the alert and find the new row in the product table. | Functional, valid input | Name `Test Wireless Charger`; category `Accessories`; price `29.99`; stock `10` | The alert “Product 'Test Wireless Charger' added successfully!” appears, and the table shows a row with Accessories, $29.99 and stock 10. | The alert “Product 'Test Wireless Charger' added successfully!” appeared. The table now holds 9 products and lists ID 9, Test Wireless Charger, Accessories, $29.99, stock 10, in alphabetical order. **PASS.** Evidence: `evidence/TC04_add_product.png` |
-| 5 | Check the Product ID search with a valid ID and a boundary ID. | Pre: logged in as `admin`, on **Products**.<br>1. Enter the existing ID `1` in Search by Product ID and click **Search**.<br>2. Enter the boundary value `0` and click **Search**. | Functional, boundary | Valid ID `1` (Samsung TV 55"); boundary ID `0` | ID `1` finds Samsung TV 55" and shows “Product found using Binary Search”. ID `0` shows “Product ID must be a positive number.” | ID `1` showed “Product found using Binary Search (index: 0)” and a Search Result row: Samsung TV 55", Television, $499.99, stock 15. ID `0` showed “Product ID must be a positive number.” and no result panel. **PASS.** Evidence: `evidence/TC05_search_valid.png`, `evidence/TC05_search_zero.png` |
-| 6 | Check that a regular user cannot open the Users page. | 1. Open `/login.php` and sign in as `user` / `password`.<br>2. Look for a Users link in the navbar.<br>3. Type `/users.php` in the address bar. | Security, access control | Username `user`; password `password`; URL `/users.php` | The navbar has no Users link, and `users.php` redirects to the dashboard. | After login as `user` (“Regular User”) the navbar showed Dashboard, Products, Sales, Reports and Profile, with **no Users link**. Opening `users.php` redirected to `index.php`, and no user list appeared. **PASS.** Evidence: `evidence/TC06_user_access.png`, `evidence/TC06_users_blocked.png` |
-| 7 | Check that a sale updates the preview, the history and the stock. | Pre: logged in as `admin`; Samsung TV 55" stock is 15.<br>1. Open **Sales**.<br>2. Select Samsung TV 55" (Stock: 15), enter quantity `2`, and keep today's date.<br>3. Read the preview box.<br>4. Click **Record Sale**.<br>5. Read the alert, the Sales History and the stock. | Functional, calculation | Product Samsung TV 55" (price `$499.99`, stock `15`); quantity `2`; date = today (08/10/2026); expected revenue `$999.98` | The preview shows $499.99 and $999.98, the sale appears in the history, and stock drops from 15 to 13. | The preview showed Unit Price $499.99 and Estimated Revenue $999.98. After **Record Sale** the alert said “Sale recorded! 2 unit(s) … New stock: 13 units.” Sales History gained row #1 (quantity 2, $499.99, $999.98, 08/10/2026). Stock fell from 15 to 13, and the database shows the same. **PASS.** Defect: the alert prints the product name as `'Samsung TV 55&quot;'`. The app escapes the text twice, so the HTML entity appears as typed. The sale itself is correct. Evidence: `evidence/TC07_sale_preview.png`, `evidence/TC07_sale_recorded.png` |
-| 8 | Check that the app refuses to sell more than the stock. | Pre: logged in as `admin`; Wireless Mouse stock is 2 (seed value, not sold yet).<br>1. Open **Sales**.<br>2. Select Wireless Mouse (Stock: 2), enter quantity `3` and click **Record Sale**. The browser `max` check blocks the form first.<br>3. Turn off browser validation (`form.noValidate`, no source change) and submit again.<br>4. Read the message, the Sales History and the stock. | Boundary, business rule | Product Wireless Mouse (stock `2`); quantity `3` (one above the stock) | A “Not enough stock” error appears, no sale is recorded and the stock stays the same. | The browser blocked the form first with the tooltip “Value must be less than or equal to 2.” because the page sets `max` to the stock value (`evidence/TC08_client_validation.png`). With browser validation off, the server answered “Not enough stock! Available: 2 units of 'Wireless Mouse'.” The history still held only sale #1, and the mouse stock stayed at 2. **PASS.** The browser and the server each stop overselling. Evidence: `evidence/TC08_overselling_blocked.png`, `evidence/TC08_client_validation.png` |
-| 9 | Check the profile update and the wrong-password rejection. | Pre: logged in as `admin`.<br>1. Open **Profile**.<br>2. Change Full Name to `Updated Test Name` and click **Update Profile**.<br>3. Under Change Password enter current password `wrong-current`, new password `newpass123` and confirmation `newpass123`, then click **Change Password**.<br>4. Restore the original name. | Functional, invalid input | Full name `Updated Test Name`; current password `wrong-current` (wrong); new and confirm password `newpass123` | The name updates, and the password change fails with an error. | The full name changed to `Updated Test Name`. The alert said “Profile updated successfully!”, and both Account Information and the navbar showed the new name. The password change with the wrong current password (`wrong-current`) failed with “Current password is incorrect.” The stored password did not change. The test restored the name “Administrator” afterward. **PASS.** Evidence: `evidence/TC09_profile_update.png`, `evidence/TC09_password_rejected.png` |
-| 10 | Check that the report filters by date. | Pre: the TC07 sale exists (run the tests in order).<br>1. Open **Reports**.<br>2. Set the date to the TC07 sale date (`2026-10-08`) and click **Generate Report**.<br>3. Set the date to `2020-01-01` (no sales) and click **Generate Report**. | Functional, date filter and totals | Sale date `08/10/2026` (2 units, `$999.98`); no-sales date `01/01/2020` | The sale date shows the Samsung TV row and correct totals. The no-sales date shows a warning and zero totals. | The report for 08/10/2026 (the TC07 sale date) showed the Samsung TV 55" row with 2 units sold, 13 remaining and $999.98. Totals: 2 units, $999.98, 289 in stock, 9 products. The report for 01/01/2020 showed “No sales were recorded on 01/01/2020. The table below shows current inventory levels only.” with 0 units and $0.00 totals. **PASS.** Evidence: `evidence/TC10_report_with_sales.png`, `evidence/TC10_report_no_sales.png` |
+| 1 | Check that the administrator can log in. | Pre: fresh database import.<br>1. Open `/login.php`.<br>2. Enter username `admin` and password `password`.<br>3. Click **Sign In**.<br>4. Look at the dashboard and the navbar. | Normal data; black box | Username `admin`; password `password` (the correct pair) | The dashboard opens and the navbar shows the Users link. | The browser went to `index.php`. The dashboard showed the summary cards and the **Users** link, and the navbar showed “Administrator”. **PASS.** Evidence: `evidence/TC01_admin_login.png` |
+| 2 | Check that a wrong password is rejected. | 1. Open `/login.php`.<br>2. Enter username `admin` and password `wrong-password-123`.<br>3. Click **Sign In**.<br>4. Read the page and the alert. | Invalid data; black box | Username `admin` (exists); password `wrong-password-123` (does not match the account) | The login page stays open and shows “Invalid username or password.” | The browser stayed on `login.php` and showed a red alert, “Invalid username or password.” The username field kept `admin`, the password field was empty, and no dashboard opened. **PASS.** Evidence: `evidence/TC02_invalid_login.png` |
+| 3 | Check that registration accepts the shortest allowed username and password. | 1. Open `/register.php`.<br>2. Enter full name `Boundary Test User`, username `abc`, and `pass` in both password fields.<br>3. Click **Create Account**.<br>4. Sign in with `abc` / `pass`. | Borderline data; black box | Username `abc` (3 characters, the minimum); password and confirm password `pass` (4 characters, the minimum) | The app accepts both values, shows “Account created. You can now sign in.”, and the new account can log in. | The page showed “Account created. You can now sign in.” Login with `abc` / `pass` opened the dashboard. **PASS.** Evidence: `evidence/TC03_register_borderline.png` |
+| 4 | Check that registration rejects a username below the minimum length. | 1. Open `/register.php`.<br>2. Enter full name `Boundary Test User`, username `ab`, and `pass1234` in both password fields.<br>3. Click **Create Account**. | Invalid data; black box | Username `ab` (2 characters, one below the minimum of 3); password and confirm password `pass1234` | The app rejects the form, stays on `register.php` and shows “Username must be at least 3 characters.” No account is created. | The page stayed on `register.php` and showed “Username must be at least 3 characters.” The form kept `ab` and cleared both password fields. No account was created. **PASS.** Evidence: `evidence/TC04_register_invalid.png` |
+| 5 | Check that an administrator can add a product. | Pre: logged in as `admin`.<br>1. Open **Products**.<br>2. Fill in the Add Product form with the test data.<br>3. Click **Add Product**.<br>4. Find the new row in the product table. | Normal data; black box | Name `Test Wireless Charger`; category `Accessories`; price `29.99`; stock `10` | The alert “Product 'Test Wireless Charger' added successfully!” appears, and the table shows a row with Accessories, $29.99 and stock 10. | The alert “Product 'Test Wireless Charger' added successfully!” appeared. The table lists ID 9, Test Wireless Charger, Accessories, $29.99, stock 10. **PASS.** Evidence: `evidence/TC05_add_product.png` |
+| 6 | Check that the product form accepts the lowest allowed price and stock. | Pre: logged in as `admin`.<br>1. Open **Products**.<br>2. Enter name `Test Cable`, category `Accessories`, price `0.01` and stock `0`.<br>3. Click **Add Product**.<br>4. Find the new row in the product table. | Borderline data; black box | Name `Test Cable`; category `Accessories`; price `0.01` (lowest price above 0); stock `0` (lowest allowed stock) | The app accepts the product, shows “Product 'Test Cable' added successfully!” and lists it at $0.01 with stock 0. | The alert “Product 'Test Cable' added successfully!” appeared. The table (10 products) lists ID 10, Test Cable, Accessories, $0.01, with an **Out of Stock** badge for stock 0. **PASS.** Evidence: `evidence/TC06_product_borderline.png` |
+| 7 | Check that Product ID search accepts the lowest valid ID. | Pre: logged in as `admin`, on **Products**.<br>1. Enter `1` in Search by Product ID.<br>2. Click **Search**.<br>3. Read the message and the Search Result panel. | Borderline data; black box | Product ID `1` (the lowest valid ID; the app rejects anything below 1) | The app finds Samsung TV 55" and shows “Product found using Binary Search”. | The page showed “Product found using Binary Search (index: 0)” and a Search Result row: ID 1, Samsung TV 55", Television, $499.99, stock 15. **PASS.** Evidence: `evidence/TC07_search_id1.png` |
+| 8 | Check that Product ID search rejects an ID below 1. | Pre: logged in as `admin`, on **Products**.<br>1. Enter `0` in Search by Product ID.<br>2. Click **Search**. | Invalid data; black box | Product ID `0` (one below the lowest valid ID) | The app shows “Product ID must be a positive number.” and no Search Result. | The page showed “Product ID must be a positive number.” and no Search Result panel. **PASS.** Evidence: `evidence/TC08_search_id0.png` |
+| 9 | Check that a regular user cannot open the Users page. | 1. Open `/login.php` and sign in as `user` / `password`.<br>2. Look for a Users link in the navbar.<br>3. Type `/users.php` in the address bar. | Invalid data (account without admin rights); black box | Username `user`; password `password` (role: user); URL `/users.php` | The navbar has no Users link, and `users.php` sends the user back to the dashboard. | The navbar showed “Regular User” with Dashboard, Products, Sales and Reports, and **no Users link**. Opening `users.php` redirected to `index.php`, and no user list appeared. **PASS.** Evidence: `evidence/TC09_users_blocked.png` |
+| 10 | Check that a sale updates the preview, the history and the stock. | Pre: logged in as `admin`; Samsung TV 55" stock is 15.<br>1. Open **Sales**.<br>2. Select Samsung TV 55" (Stock: 15), enter quantity `2`, and keep today's date.<br>3. Read the preview box.<br>4. Click **Record Sale**.<br>5. Read the alert, the Sales History and the stock. | Normal data; black box | Product Samsung TV 55" (price `$499.99`, stock `15`); quantity `2`; date = today (08/10/2026); expected revenue `$999.98` | The preview shows $499.99 and $999.98, the sale appears in the history, and stock drops from 15 to 13. | The preview showed Unit Price $499.99 and Estimated Revenue $999.98. After **Record Sale** the alert said “Sale recorded! 2 unit(s) … New stock: 13 units.” Sales History gained row #1 (quantity 2, $499.99, $999.98, 08/10/2026). **PASS.** Defect: the alert prints the product name as `'Samsung TV 55&quot;'`. The app escapes the text twice, so the HTML entity appears as typed. The sale itself is correct. Evidence: `evidence/TC10_sale_preview.png`, `evidence/TC10_sale_recorded.png` |
+| 11 | Check that the app refuses to sell more than the stock. | Pre: logged in as `admin`; Wireless Mouse stock is 2.<br>1. Open **Sales**.<br>2. Select Wireless Mouse (Stock: 2), enter quantity `3` and click **Record Sale**. The browser `max` check blocks the form first.<br>3. Turn off browser validation (`form.noValidate`, no source change) and submit again.<br>4. Read the message, the Sales History and the stock. | Invalid data; black box | Product Wireless Mouse (stock `2`); quantity `3` (one above the stock) | A “Not enough stock” error appears, no sale is recorded and the stock stays at 2. | The browser blocked the form first with the tooltip “Value must be less than or equal to 2.” because the page sets `max` to the stock value (`evidence/TC11_client_validation.png`). With browser validation off, the server answered “Not enough stock! Available: 2 units of 'Wireless Mouse'.” The history still held only sale #1, and the mouse stock stayed at 2. **PASS.** The browser and the server each stop overselling. Evidence: `evidence/TC11_overselling_blocked.png`, `evidence/TC11_client_validation.png` |
+| 12 | Check that the app accepts a sale of the full remaining stock. | Pre: logged in as `admin`; Wireless Mouse stock is 2 (Test 11 did not change it).<br>1. Open **Sales**.<br>2. Select Wireless Mouse (Stock: 2) and enter quantity `2`.<br>3. Click **Record Sale**.<br>4. Read the alert, the Sales History and the product list. | Borderline data; black box | Product Wireless Mouse (stock `2`, price `$25.99`); quantity `2` (equal to the stock, the highest accepted) | The app records the sale, the stock drops to 0, and the mouse leaves the sale product list. | The alert said “Sale recorded! 2 unit(s) of 'Wireless Mouse' sold. New stock: 0 units.” Sales History gained row #2 (quantity 2, $25.99, $51.98, 08/10/2026). Wireless Mouse no longer appears in Select Product. **PASS.** Evidence: `evidence/TC12_sell_all_stock.png` |
+| 13 | Check that a user can change the profile name. | Pre: logged in as `admin`.<br>1. Open **Profile**.<br>2. Change Full Name to `Updated Test Name`.<br>3. Click **Update Profile**.<br>4. Restore the original name. | Normal data; black box | Full name `Updated Test Name` | The app shows “Profile updated successfully!” and displays the new name. | The alert said “Profile updated successfully!”, and both Account Information and the navbar showed `Updated Test Name`. The test restored the name “Administrator” afterward. **PASS.** Evidence: `evidence/TC13_profile_update.png` |
+| 14 | Check that a password change needs the correct current password. | Pre: logged in as `admin`.<br>1. Open **Profile**.<br>2. Under Change Password enter current password `wrong-current`, new password `newpass123` and confirmation `newpass123`.<br>3. Click **Change Password**. | Invalid data; black box | Current password `wrong-current` (wrong; the real one is `password`); new and confirm password `newpass123` | The app rejects the change with “Current password is incorrect.” and keeps the old password. | The page showed “Current password is incorrect.” The password did not change: Test 15 still logged in with `admin` / `password`. **PASS.** Evidence: `evidence/TC14_password_rejected.png` |
+| 15 | Check that the daily report filters sales by date. | Pre: the sales from Tests 10 and 12 exist (run the tests in order).<br>1. Open **Reports**.<br>2. Set the date to `2026-10-08` (the sale date) and click **Generate Report**.<br>3. Set the date to `2020-01-01` and click **Generate Report**. | Normal data; black box | Sale date `08/10/2026`; date with no sales `01/01/2020` | 08/10/2026 lists Samsung TV 55" (2 units, $999.98) and Wireless Mouse (2 units, $51.98) with matching totals. 01/01/2020 shows a no-sales warning and zero totals. | The 08/10/2026 report showed Samsung TV 55" (2 sold, 13 left, $999.98) and Wireless Mouse (2 sold, 0 left, $51.98). Totals: 4 units, $1,051.96, 287 in stock, 10 products. The 01/01/2020 report showed “No sales were recorded on 01/01/2020. The table below shows current inventory levels only.” with 0 units and $0.00. **PASS.** Evidence: `evidence/TC15_report_with_sales.png`, `evidence/TC15_report_no_sales.png` |
 
 ---
 
@@ -399,10 +301,10 @@ For tests with a before-and-after state, use two screenshots or one composite im
 
 - [x] XAMPP Apache and MySQL were running. *(Fedora: PHP 8.4 built-in web server on `localhost:8080` and MySQL used instead of XAMPP.)*
 - [x] The database was reset or the test-data state was recorded. *(Dropped and re-imported `inventory_db.sql` immediately before the run; tests ran in document order.)*
-- [x] All 10 tests were executed.
-- [x] Normal, boundary, and invalid test data were included.
+- [x] All 15 tests were executed.
+- [x] Normal, borderline and invalid test data were included (5 normal, 4 borderline, 6 invalid).
 - [x] Every Actual Result is based on observation.
 - [x] Every test has PASS or FAIL.
 - [x] Every test has at least one clear screenshot.
 - [x] The final table includes Purpose, Description, Type of validation, Test data, Expected result, Actual result, and Evidence.
-- [x] Any failed test includes a short explanation and, if appropriate, a defect note. *(No test failed; one cosmetic defect noted under Test 7.)*
+- [x] Any failed test includes a short explanation and, if appropriate, a defect note. *(No test failed; one cosmetic defect noted under Test 10.)*
